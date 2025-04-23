@@ -25,24 +25,8 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> fetchTickets() async {
     try {
       print('Fetching tickets from server...');
-      final soapEnvelope = '''
-<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tic="http://example.com/ticket">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <tic:GetTicketsRequest/>
-  </soapenv:Body>
-</soapenv:Envelope>
-''';
-
-      final response = await http.post(
-        Uri.parse('http://192.168.1.11:3000/wsdl'), // Ganti dengan IP server Anda
-        headers: {
-          'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'http://example.com/ticket/GetTicket',
-        },
-        body: soapEnvelope,
-      );
+      final response = await soapService.getTickets();
+      print('GetTickets response: $response');
 
       final ticketList = parseTicketsXml(response);
       print('Parsed tickets: $ticketList');
@@ -217,13 +201,10 @@ class _InputDataPageState extends State<InputDataPage> {
       // Print the request for debugging
       print('Sending ticket with name: $name, train: $train, date: $date');
 
-      final response = await http.post(
-        Uri.parse('http://192.168.1.11:3000/wsdl'),
-        headers: {
-          'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'http://example.com/ticket/AddTicket',
-        },
-        body: soapEnvelope,
+      final response = await soapService.addTicket(
+        name: name,
+        train: train,
+        date: date,
       );
 
       // Print the complete response for debugging
