@@ -8,10 +8,10 @@ class SoapService {
     final body = '''
     <?xml version="1.0"?>
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                      xmlns:tns="http://example.com/ticket">
+                      xmlns:tic="http://example.com/ticket">
       <soapenv:Header/>
       <soapenv:Body>
-        <tns:GetTicketsRequest/>
+        <tic:GetTicketsRequest/>
       </soapenv:Body>
     </soapenv:Envelope>
     ''';
@@ -111,16 +111,22 @@ class SoapService {
 
   Future<String> deleteTicket(String id) async {
     final body = '''
-    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                      xmlns:tic="http://example.com/ticket">
-      <soapenv:Header/>
-      <soapenv:Body>
-        <tic:DeleteTicketRequest>
+  <?xml version="1.0" encoding="utf-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:tic="http://example.com/ticket">
+    <soapenv:Header/>
+    <soapenv:Body>
+      <tic:DeleteTicketRequest>
+        <tic:ticket>
           <tic:id>$id</tic:id>
-        </tic:DeleteTicketRequest>
-      </soapenv:Body>
-    </soapenv:Envelope>
-    ''';
+        </tic:ticket>
+      </tic:DeleteTicketRequest>
+    </soapenv:Body>
+  </soapenv:Envelope>
+  ''';
+
+    print('Sending DeleteTicket request for ID: $id');
+    print('Request body: $body');
 
     final response = await http.post(
       Uri.parse(endpoint),
@@ -131,10 +137,13 @@ class SoapService {
       body: body,
     );
 
+    print('DeleteTicket response status: ${response.statusCode}');
+    print('DeleteTicket response body: ${response.body}');
+
     if (response.statusCode == 200) {
       return response.body;
     } else {
-      throw Exception('Error deleting ticket');
+      throw Exception('Error deleting ticket: ${response.statusCode} - ${response.body}');
     }
   }
 }

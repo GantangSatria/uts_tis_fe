@@ -40,8 +40,8 @@ class _DashboardPageState extends State<DashboardPage> {
       print('Error fetching tickets: $e');
       setState(() {
         tickets = [
-          {"kereta": "Agung Joyo", "penumpang": "Mr. Satria", "waktu": "2025-04-23"},
-          {"kereta": "[Error] Argo Bromo", "penumpang": "Ms. Maya", "waktu": "2025-04-24"},
+          {"id": "1", "kereta": "Agung Joyo", "penumpang": "Mr. Satria", "waktu": "2025-04-23"},
+          {"id": "2", "kereta": "[Error] Argo Bromo", "penumpang": "Ms. Maya", "waktu": "2025-04-24"},
         ];
       });
     }
@@ -53,8 +53,8 @@ class _DashboardPageState extends State<DashboardPage> {
     print('Parsing XML response...');
 
     try {
-      // Coba mencari pola ticket dengan namespace tns
-      RegExp ticketRegex = RegExp(r'<(?:tns:)?ticket>.*?<\/(?:tns:)?ticket>', dotAll: true);
+      // Coba mencari pola ticket dengan namespace tns atau tic
+      RegExp ticketRegex = RegExp(r'<(?:tns:|tic:)?ticket>.*?<\/(?:tns:|tic:)?ticket>', dotAll: true);
       Iterable<RegExpMatch> ticketMatches = ticketRegex.allMatches(xmlString);
 
       print('Found ${ticketMatches.length} ticket entries');
@@ -63,14 +63,19 @@ class _DashboardPageState extends State<DashboardPage> {
         String ticketXml = match.group(0) ?? '';
 
         // Coba berbagai variasi namespace
+        String? id = extractXmlValue(ticketXml, 'id');
         String? name = extractXmlValue(ticketXml, 'name');
         String? train = extractXmlValue(ticketXml, 'train');
         String? date = extractXmlValue(ticketXml, 'date');
 
-        print('Extracted ticket data: name=$name, train=$train, date=$date');
+        print('Extracted ticket data: id=$id, name=$name, train=$train, date=$date');
+
+        // Pastikan id ada, kalau tidak buat temporary ID
+        final ticketId = id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
         if (name != null && train != null && date != null) {
           result.add({
+            "id": ticketId,
             "penumpang": name,
             "kereta": train,
             "waktu": date,
@@ -110,6 +115,50 @@ class _DashboardPageState extends State<DashboardPage> {
     await fetchTickets();
   }
 
+  Future<void> deleteTicket(String id) async {
+    try {
+      // Show confirmation dialog
+      bool confirm = await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Konfirmasi'),
+          content: Text('Apakah Anda yakin ingin menghapus tiket ini?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Hapus'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+            ),
+          ],
+        ),
+      ) ?? false;
+
+      if (!confirm) return;
+
+      // Call SOAP service to delete the ticket
+      await soapService.deleteTicket(id);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tiket berhasil dihapus')),
+      );
+
+      // Refresh ticket list
+      await fetchTickets();
+    } catch (e) {
+      print('Error deleting ticket: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus tiket: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,7 +179,18 @@ class _DashboardPageState extends State<DashboardPage> {
           centerTitle: true,
         ),
       ),
-      body: ListView.builder(
+      body: tickets.isEmpty
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.train_outlined, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Tidak ada tiket', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+          ],
+        ),
+      )
+          : ListView.builder(
         padding: const EdgeInsets.only(top: 40, left: 16, right: 16),
         itemCount: tickets.length,
         itemBuilder: (context, index) {
@@ -139,33 +199,62 @@ class _DashboardPageState extends State<DashboardPage> {
             margin: const EdgeInsets.only(bottom: 16),
             elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              leading: Container(
-                width: 70,
-                height: 70,
+            child: Dismissible(
+              key: Key(ticket["id"] ?? index.toString()),
+              background: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF8B00CC), Color(0xFFCF66FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.train, color: Colors.white, size: 40),
+                alignment: Alignment.centerRight,
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Icon(Icons.delete, color: Colors.white),
               ),
-              title: Text(ticket["kereta"]!),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(ticket["penumpang"]!),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 24),
-                      SizedBox(width: 4),
-                      Text(ticket["waktu"]!),
-                    ],
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (direction) async {
+                if (ticket["id"] != null) {
+                  await deleteTicket(ticket["id"]!);
+                }
+                return false; // Let our delete function handle the UI updates
+              },
+              child: ListTile(
+                contentPadding: EdgeInsets.all(12),
+                leading: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF8B00CC), Color(0xFFCF66FF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  child: Icon(Icons.train, color: Colors.white, size: 40),
+                ),
+                title: Text(ticket["kereta"]!, style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ticket["penumpang"]!),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                        SizedBox(width: 4),
+                        Text(ticket["waktu"]!, style: TextStyle(color: Colors.grey[600])),
+                      ],
+                    ),
+                  ],
+                ),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () {
+                    if (ticket["id"] != null) {
+                      deleteTicket(ticket["id"]!);
+                    }
+                  },
+                ),
               ),
             ),
           );
