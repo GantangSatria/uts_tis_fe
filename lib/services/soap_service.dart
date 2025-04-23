@@ -1,9 +1,9 @@
 import 'package:http/http.dart' as http;
 
 class SoapService {
-  final String endpoint = 'http://localhost:3000/wsdl'; //perlu diganti
+  // Updated to match the endpoint used in main.dart
+  final String endpoint = 'http://192.168.1.11:3000/wsdl';
 
-  //endpoint call buat get nya
   Future<String> getTickets() async {
     final body = '''
     <?xml version="1.0"?>
@@ -19,8 +19,8 @@ class SoapService {
     final response = await http.post(
       Uri.parse(endpoint),
       headers: {
-        'Content-Type': 'text/xml',
-        'SOAPAction': 'http://example.com/ticket/GetTickets',
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': 'http://example.com/ticket/GetTicket', // Updated to match main.dart
       },
       body: body,
     );
@@ -28,11 +28,10 @@ class SoapService {
     if (response.statusCode == 200) {
       return response.body;
     } else {
-      throw Exception('Error fetching tickets');
+      throw Exception('Error fetching tickets: ${response.statusCode}');
     }
   }
 
-  //endpoint call buat add nya
   Future<String> addTicket({
     required String name,
     required String train,
@@ -41,16 +40,16 @@ class SoapService {
     final soapEnvelope = '''
     <?xml version="1.0" encoding="utf-8"?>
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                      xmlns:tns="http://example.com/ticket">
+                      xmlns:tic="http://example.com/ticket">
        <soapenv:Header/>
        <soapenv:Body>
-          <tns:AddTicketRequest>
-             <tns:ticket>
-                <tns:name>$name</tns:name>
-                <tns:train>$train</tns:train>
-                <tns:date>$date</tns:date>
-             </tns:ticket>
-          </tns:AddTicketRequest>
+          <tic:AddTicketRequest>
+             <tic:ticket>
+                <tic:name>$name</tic:name>
+                <tic:train>$train</tic:train>
+                <tic:date>$date</tic:date>
+             </tic:ticket>
+          </tic:AddTicketRequest>
        </soapenv:Body>
     </soapenv:Envelope>
     ''';
@@ -71,7 +70,6 @@ class SoapService {
     }
   }
 
-  //endpoint call buat update nya
   Future<String> updateTicket({
     required String id,
     required String name,
@@ -80,17 +78,17 @@ class SoapService {
   }) async {
     final body = '''
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                      xmlns:tns="http://example.com/ticket">
+                      xmlns:tic="http://example.com/ticket">
       <soapenv:Header/>
       <soapenv:Body>
-        <tns:UpdateTicketRequest>
-          <tns:ticket>
-            <tns:id>$id</tns:id>
-            <tns:name>$name</tns:name>
-            <tns:train>$train</tns:train>
-            <tns:date>$date</tns:date>
-          </tns:ticket>
-        </tns:UpdateTicketRequest>
+        <tic:UpdateTicketRequest>
+          <tic:ticket>
+            <tic:id>$id</tic:id>
+            <tic:name>$name</tic:name>
+            <tic:train>$train</tic:train>
+            <tic:date>$date</tic:date>
+          </tic:ticket>
+        </tic:UpdateTicketRequest>
       </soapenv:Body>
     </soapenv:Envelope>
     ''';
@@ -98,7 +96,7 @@ class SoapService {
     final response = await http.post(
       Uri.parse(endpoint),
       headers: {
-        'Content-Type': 'text/xml',
+        'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': 'http://example.com/ticket/UpdateTicket',
       },
       body: body,
@@ -111,16 +109,15 @@ class SoapService {
     }
   }
 
-  //endpoint call buat delete nya
   Future<String> deleteTicket(String id) async {
     final body = '''
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                      xmlns:tns="http://example.com/ticket">
+                      xmlns:tic="http://example.com/ticket">
       <soapenv:Header/>
       <soapenv:Body>
-        <tns:DeleteTicketRequest>
-          <tns:id>$id</tns:id>
-        </tns:DeleteTicketRequest>
+        <tic:DeleteTicketRequest>
+          <tic:id>$id</tic:id>
+        </tic:DeleteTicketRequest>
       </soapenv:Body>
     </soapenv:Envelope>
     ''';
@@ -128,7 +125,7 @@ class SoapService {
     final response = await http.post(
       Uri.parse(endpoint),
       headers: {
-        'Content-Type': 'text/xml',
+        'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': 'http://example.com/ticket/DeleteTicket',
       },
       body: body,

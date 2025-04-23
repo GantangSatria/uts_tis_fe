@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:http/http.dart' as http;
+import 'services/soap_service.dart';
 
 void main() {
   runApp(MaterialApp(home: DashboardPage(), debugShowCheckedModeBanner: false));
@@ -16,6 +14,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   List<Map<String, String>> tickets = [];
+  final SoapService soapService = SoapService();
 
   @override
   void initState() {
@@ -26,46 +25,17 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> fetchTickets() async {
     try {
       print('Fetching tickets from server...');
-      final soapEnvelope = '''
-<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tic="http://example.com/ticket">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <tic:GetTicketsRequest/>
-  </soapenv:Body>
-</soapenv:Envelope>
-''';
+      final response = await soapService.getTickets();
+      print('GetTickets response: $response');
 
-      final response = await http.post(
-        Uri.parse('http://192.168.1.11:3000/wsdl'), // Ganti dengan IP server Anda
-        headers: {
-          'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'http://example.com/ticket/GetTicket',
-        },
-        body: soapEnvelope,
-      );
+      final ticketList = parseTicketsXml(response);
+      print('Parsed tickets: $ticketList');
 
-      print('GetTickets response status: ${response.statusCode}');
-      print('GetTickets response body: ${response.body}');
+      setState(() {
+        tickets = ticketList;
+      });
 
-      if (response.statusCode == 200) {
-        final ticketList = parseTicketsXml(response.body);
-        print('Parsed tickets: $ticketList');
-
-        setState(() {
-          tickets = ticketList;
-        });
-
-        print('Updated tickets state: $tickets');
-      } else {
-        print('Failed to load tickets: ${response.statusCode}');
-        setState(() {
-          tickets = [
-            {"kereta": "Agung Joyo", "penumpang": "Mr. Satria", "waktu": "2025-04-23"},
-            {"kereta": "[Dummy] Argo Bromo", "penumpang": "Ms. Maya", "waktu": "2025-04-24"},
-          ];
-        });
-      }
+      print('Updated tickets state: $tickets');
     } catch (e) {
       print('Error fetching tickets: $e');
       setState(() {
@@ -211,7 +181,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-
 class InputDataPage extends StatefulWidget {
   @override
   _InputDataPageState createState() => _InputDataPageState();
@@ -221,63 +190,39 @@ class _InputDataPageState extends State<InputDataPage> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController keretaController = TextEditingController();
   final TextEditingController tanggalController = TextEditingController();
+  final SoapService soapService = SoapService();
 
-  Future<void> sendTicketToSoap(String name, String train, String date) async {
+  Future<void> sendTicket() async {
     try {
-      final soapEnvelope = '''
-<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tic="http://example.com/ticket">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <tic:AddTicketRequest>
-      <tic:ticket>
-        <tic:name>$name</tic:name>
-        <tic:train>$train</tic:train>
-        <tic:date>$date</tic:date>
-      </tic:ticket>
-    </tic:AddTicketRequest>
-  </soapenv:Body>
-</soapenv:Envelope>
-''';
+      String name = nameController.text;
+      String train = keretaController.text;
+      String date = tanggalController.text;
 
       // Print the request for debugging
-      print('Sending SOAP request:');
-      print(soapEnvelope);
+      print('Sending ticket with name: $name, train: $train, date: $date');
 
-      final response = await http.post(
-        Uri.parse('http://192.168.1.11:3000/wsdl'),
-        headers: {
-          'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'http://example.com/ticket/AddTicket',
-        },
-        body: soapEnvelope,
+      final response = await soapService.addTicket(
+        name: name,
+        train: train,
+        date: date,
       );
 
       // Print the complete response for debugging
-      print('Response status: ${response.statusCode}');
       print('Response body:');
-      print(response.body);
+      print(response);
 
-      if (response.statusCode == 200) {
-        if (response.body.contains('success') ||
-            response.body.toLowerCase().contains('success')) {
-          print('Ticket berhasil dikirim!');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Tiket berhasil ditambahkan')),
-          );
-        } else {
-          print('Response format may not be what we expected, but request was sent');
-          // You might want to consider it a success if the status code is 200
-          // even if we don't find the explicit "success" text
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Tiket dikirim, tetapi respons tidak sesuai format yang diharapkan')),
-          );
-        }
-      } else {
-        print('Gagal: ${response.statusCode}');
-        print(response.body);
+      if (response.contains('success') ||
+          response.toLowerCase().contains('success')) {
+        print('Ticket berhasil dikirim!');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menambahkan tiket: ${response.statusCode}')),
+          SnackBar(content: Text('Tiket berhasil ditambahkan')),
+        );
+      } else {
+        print('Response format may not be what we expected, but request was sent');
+        // You might want to consider it a success if the status code is 200
+        // even if we don't find the explicit "success" text
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tiket dikirim, tetapi respons tidak sesuai format yang diharapkan')),
         );
       }
     } catch (e) {
@@ -287,7 +232,6 @@ class _InputDataPageState extends State<InputDataPage> {
       );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +301,7 @@ class _InputDataPageState extends State<InputDataPage> {
                     String date = tanggalController.text;
 
                     if (name.isNotEmpty && train.isNotEmpty && date.isNotEmpty) {
-                      await sendTicketToSoap(name, train, date);
+                      await sendTicket();
                       Navigator.pop(context);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -378,4 +322,3 @@ class _InputDataPageState extends State<InputDataPage> {
     );
   }
 }
-
