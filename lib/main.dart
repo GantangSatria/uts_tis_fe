@@ -201,10 +201,13 @@ class _InputDataPageState extends State<InputDataPage> {
       // Print the request for debugging
       print('Sending ticket with name: $name, train: $train, date: $date');
 
-      final response = await soapService.addTicket(
-        name: name,
-        train: train,
-        date: date,
+      final response = await http.post(
+        Uri.parse('http://192.168.1.11:3000/wsdl'),
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'http://example.com/ticket/AddTicket',
+        },
+        body: soapEnvelope,
       );
 
       // Print the complete response for debugging
