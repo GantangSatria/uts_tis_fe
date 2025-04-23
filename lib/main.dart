@@ -25,8 +25,24 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> fetchTickets() async {
     try {
       print('Fetching tickets from server...');
-      final response = await soapService.getTickets();
-      print('GetTickets response: $response');
+      final soapEnvelope = '''
+<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tic="http://example.com/ticket">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <tic:GetTicketsRequest/>
+  </soapenv:Body>
+</soapenv:Envelope>
+''';
+
+      final response = await http.post(
+        Uri.parse('http://192.168.1.11:3000/wsdl'), // Ganti dengan IP server Anda
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'http://example.com/ticket/GetTicket',
+        },
+        body: soapEnvelope,
+      );
 
       final ticketList = parseTicketsXml(response);
       print('Parsed tickets: $ticketList');
