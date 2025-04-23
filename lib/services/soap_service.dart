@@ -2,7 +2,7 @@ import 'package:http/http.dart' as http;
 
 class SoapService {
   // Updated to match the endpoint used in main.dart
-  final String endpoint = 'http://192.168.1.11:3000/wsdl';
+  final String endpoint = 'http://10.0.2.2:3000/wsdl';
 
   Future<String> getTickets() async {
     final body = '''
